@@ -96,14 +96,14 @@
   #result:empty { display:none; }
 
   @media (max-width: 600px) {
-    .panel { top:8px; left:54px; right:8px; width:auto; padding:7px 9px; border-radius:10px; max-height:46vh; }
+    .panel { top:8px; left:54px; right:8px; width:auto; padding:7px 9px; border-radius:10px; max-height:none; overflow:visible; }
     h3 { font-size:13px; }
     .toggle-btn { font-size:11px; padding:4px 8px; }
     #panelBody { margin-top:5px !important; }
     .form-group { margin-bottom:5px; }
     label { display:none; }
     .combo-input, #searchBox { font-size:16px; padding:6px 26px 6px 8px; }
-    .combo-list { position:static; max-height:30vh; margin-top:3px; }
+    .combo-list { position:absolute; max-height:190px; margin-top:3px; }
     .combo-opt { padding:8px 10px; }
     button { padding:6px; font-size:12px; margin-top:4px; }
     #btnLocate { font-size:12px !important; padding:5px !important; margin-top:4px !important; }
@@ -159,16 +159,6 @@
       <button id="btnClear" class="sec">Xóa kết quả</button>
     </div>
 
-    <details id="amenityBox" open>
-      <summary>🔎 Tra cứu tiện ích</summary>
-      <input type="search" id="searchBox" placeholder="Bấm xem gợi ý hoặc gõ tên tiện ích..." autocomplete="off">
-      <div id="searchResults"></div>
-      <div class="chip-head">
-        <span>Lọc tiện ích theo nhóm:</span>
-        <span><button type="button" class="mini sec" id="chipAll">Tất cả</button><button type="button" class="mini sec" id="chipNone">Ẩn hết</button></span>
-      </div>
-      <div id="chipRow"></div>
-    </details>
   </div>
   <div id="result"></div>
 </div>
@@ -550,7 +540,7 @@ function setupComboBox(which){
       listBox.appendChild(div);
     }
 
-    ['Tòa nhà', 'Tiện ích'].forEach(grp => {
+    ['Tiện ích', 'Tòa nhà'].forEach(grp => {
       const matched = [];
       places.forEach((p, id) => {
         if (p.kind === grp && (!q || fold(p.name).includes(q))) matched.push({p, id});
@@ -559,13 +549,15 @@ function setupComboBox(which){
 
       const head = document.createElement('div');
       head.className = 'combo-grp';
-      head.textContent = (grp === 'Tòa nhà' ? '🏢 ' : '📌 ') + `${grp} (${matched.length})`;
+      head.textContent = (grp === 'Tòa nhà' ? '🏢 ' : '📌 ') + grp;
       listBox.appendChild(head);
 
       matched.forEach(({p, id}) => {
         const opt = document.createElement('div');
         opt.className = 'combo-opt';
-        opt.innerHTML = `<span>${p.name}</span>`;
+        const ico = (p.kind === 'Tiện ích' && p.layer && p.layer.feature)
+          ? (AMENITY_GROUPS[amenityGroupOf(p.layer.feature.properties)] || AMENITY_GROUPS.Khac).icon + ' ' : '';
+        opt.innerHTML = `<span>${ico}${p.name}</span>`;
         opt.onmousedown = (e) => {
           e.preventDefault();
           setPlaceAs(which, id);
@@ -609,123 +601,9 @@ function amenityPopup(l){
   return box;
 }
 
-const amenityGroup = L.featureGroup().addTo(campusGroup), amenityItems = [], activeGroups = new Set();
-function registerAmenities(layer){
-  layer.eachLayer(l=>{
-    const g = amenityGroupOf(l.feature.properties);
-    amenityItems.push({layer:l, group:g}); activeGroups.add(g); amenityGroup.addLayer(l);
-  });
-  renderChips();
-}
-function applyFilter(){
-  amenityItems.forEach(it=>{
-    const on = activeGroups.has(it.group), shown = amenityGroup.hasLayer(it.layer);
-    if(on && !shown) amenityGroup.addLayer(it.layer);
-    else if(!on && shown) amenityGroup.removeLayer(it.layer);
-  });
-  renderChips();
-}
-function renderChips(){
-  const row = document.getElementById('chipRow'); row.innerHTML='';
-  const count = {}; amenityItems.forEach(it=>{ count[it.group]=(count[it.group]||0)+1; });
-  Object.keys(AMENITY_GROUPS).forEach(code=>{
-    if(!count[code]) return;
-    const g = AMENITY_GROUPS[code], b = document.createElement('button'); b.type='button';
-    b.className = 'chip' + (activeGroups.has(code) ? '' : ' off');
-    b.style.setProperty('--c', g.color);
-    b.innerHTML = `${g.icon} ${g.label} <span class="cnt">(${count[code]})</span>`;
-    b.onclick = () => { activeGroups.has(code) ? activeGroups.delete(code) : activeGroups.add(code); applyFilter(); };
-    row.appendChild(b);
-  });
-}
-document.getElementById('chipAll').onclick  = () => { amenityItems.forEach(it=>activeGroups.add(it.group)); applyFilter(); };
-document.getElementById('chipNone').onclick = () => { activeGroups.clear(); applyFilter(); };
-
-const $q  = document.getElementById('searchBox');
-const $sr = document.getElementById('searchResults');
-
-function locatePlace(id){
-  const p = places[id];
-  if(p.kind === 'Tiện ích'){
-    const g = amenityGroupOf(p.layer.feature.properties);
-    if(!activeGroups.has(g)){ activeGroups.add(g); applyFilter(); }
-  }
-  if(isNarrow()){ $sr.style.display='none'; $q.blur(); }
-  map.flyTo([p.center[1], p.center[0]], Math.max(map.getZoom(), 19), {duration:0.8});
-  setTimeout(()=>{ try{ p.layer.openPopup(); }catch(e){} }, 900);
-}
-
-function renderAmenityItems(list, isSample){
-  $sr.innerHTML = '';
-  $sr.style.display = 'block';
-  if (isSample) {
-    const hint = document.createElement('div');
-    hint.className = 'sr-hint';
-    hint.textContent = '💡 Gợi ý tiện ích tiêu biểu (gõ thêm để tìm):';
-    $sr.appendChild(hint);
-  }
-  if (!list.length) {
-    const d = document.createElement('div');
-    d.className = 'sr-empty';
-    d.textContent = 'Không tìm thấy tiện ích phù hợp.';
-    $sr.appendChild(d);
-    return;
-  }
-  list.slice(0, 10).forEach(({p, id}) => {
-    const g = AMENITY_GROUPS[amenityGroupOf(p.layer.feature.properties)];
-    const row = document.createElement('div'); row.className = 'sr-item';
-    const i = document.createElement('span'); i.className = 'sr-ico'; i.textContent = g.icon;
-    const tx = document.createElement('span'); tx.className = 'sr-txt';
-    const nm = document.createElement('b'); nm.textContent = p.name;
-    const sm = document.createElement('small'); sm.textContent = 'Tiện ích · ' + g.label;
-    tx.append(nm, sm);
-    row.append(i, tx);
-    [['start','Đi'],['end','Đến']].forEach(([w,txt]) => {
-      const b = document.createElement('button'); b.type='button'; b.className='mini'; b.textContent = txt;
-      b.onclick = ev => { ev.stopPropagation(); setPlaceAs(w, id); $sr.style.display = 'none'; };
-      row.appendChild(b);
-    });
-    row.onclick = () => locatePlace(id);
-    $sr.appendChild(row);
-  });
-}
-
-function runSearch(showSamplesWhenEmpty = false){
-  const q = fold($q.value);
-  if (!q) {
-    if (!showSamplesWhenEmpty) { $sr.style.display = 'none'; return; }
-    const samples = [], usedGroups = new Set();
-    places.forEach((p, id) => {
-      if (p.kind !== 'Tiện ích') return;
-      const g = amenityGroupOf(p.layer.feature.properties);
-      if (!usedGroups.has(g) && samples.length < 4) {
-        usedGroups.add(g);
-        samples.push({p, id});
-      }
-    });
-    renderAmenityItems(samples, true);
-    return;
-  }
-  const hits = [];
-  places.forEach((p, id) => {
-    if (p.kind === 'Tiện ích') {
-      const i = fold(p.name).indexOf(q);
-      if (i >= 0) hits.push({p, id, rank: i === 0 ? 0 : 1});
-    }
-  });
-  hits.sort((a,b) => a.rank - b.rank || a.p.name.localeCompare(b.p.name, 'vi', {numeric:true}));
-  renderAmenityItems(hits, false);
-}
-
+const amenityGroup = L.featureGroup().addTo(campusGroup);
+function registerAmenities(layer){ layer.eachLayer(l => amenityGroup.addLayer(l)); }
 const isNarrow = () => window.matchMedia('(max-width: 600px)').matches;
-if(isNarrow()) document.getElementById('amenityBox').open = false;
-
-$q.addEventListener('focus', () => runSearch(true));
-$q.addEventListener('input', () => runSearch(true));
-$q.addEventListener('keydown', e => { if(e.key === 'Escape'){ $q.value = ''; $sr.style.display = 'none'; } });
-document.addEventListener('click', e => {
-  if (!document.getElementById('amenityBox').contains(e.target)) $sr.style.display = 'none';
-});
 
 /* ====================== 4. NẠP DỮ LIỆU & GẮN NHÃN TÒA NHÀ ====================== */
 const places = [];
@@ -910,7 +788,7 @@ map.addControl(new LocateControl());
 document.getElementById('btnLocate').onclick = () => {
   const $btn = document.getElementById('btnLocate');
   $btn.textContent = 'Đang định vị...'; $btn.disabled = true;
-  map.locate({ setView: false, enableHighAccuracy: true });
+  map.locate({ setView: false, enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 });
 };
 
 function setUserLocation(latlng, accuracy = null, isManual = false){
@@ -985,7 +863,11 @@ map.on('locationfound', (e) => {
 map.on('locationerror', (e) => {
   const $btn = document.getElementById('btnLocate');
   if ($btn) { $btn.textContent = '📍 Vị trí hiện tại của tôi'; $btn.disabled = false; }
-  alert('Không thể lấy vị trí hiện tại: ' + e.message);
+  let msg;
+  if (e.code === 1) msg = 'Chưa có quyền định vị. Hãy bật Vị trí trên điện thoại và cho phép trang này dùng vị trí, rồi bấm lại. Hoặc chọn điểm đi từ danh sách.';
+  else if (e.code === 3) msg = 'Định vị quá lâu. Hãy thử lại, hoặc chọn điểm đi từ danh sách.';
+  else msg = 'Không lấy được vị trí. Hãy chọn điểm đi từ danh sách.';
+  $result.className = 'err'; $result.textContent = msg;
 });
 
 init();
