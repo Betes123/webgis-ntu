@@ -92,24 +92,34 @@
   .am-pop { line-height:1.45; min-width:160px; }
   .am-pop .row { display:flex; gap:5px; margin-top:6px; }
 
+  .btn-row { display:block; }
+  #result:empty { display:none; }
+
   @media (max-width: 600px) {
-    .panel { top:10px; left:56px; right:10px; width:auto; padding:8px 10px; border-radius:8px; max-height:78vh; }
+    .panel { top:8px; left:54px; right:8px; width:auto; padding:7px 9px; border-radius:10px; max-height:46vh; }
     h3 { font-size:13px; }
+    .toggle-btn { font-size:11px; padding:4px 8px; }
+    #panelBody { margin-top:5px !important; }
     .form-group { margin-bottom:5px; }
-    label { font-size:11px; margin-bottom:2px; }
-    .combo-input, #searchBox { font-size:16px; padding:7px 26px 7px 8px; }
-    .combo-list { max-height:175px; }
-    .combo-opt { padding:9px 10px; }
+    label { display:none; }
+    .combo-input, #searchBox { font-size:16px; padding:6px 26px 6px 8px; }
+    .combo-list { position:static; max-height:30vh; margin-top:3px; }
+    .combo-opt { padding:8px 10px; }
     button { padding:6px; font-size:12px; margin-top:4px; }
-    #btnLocate { font-size:11px !important; padding:5px !important; margin-top:4px !important; }
-    #result { font-size:12px; margin-top:5px; }
-    .map-type-toggle { margin-bottom:calc(env(safe-area-inset-bottom, 0px) + 30px) !important; margin-left:10px !important; }
-    .map-type-toggle .type-btn { padding:7px 12px !important; font-size:12px !important; }
+    #btnLocate { font-size:12px !important; padding:5px !important; margin-top:4px !important; }
+    .btn-row { display:flex; gap:6px; }
+    .btn-row button { flex:1; margin-top:2px; }
+    #result { font-size:12px; margin-top:4px; }
+    .map-type-toggle { margin-bottom:calc(env(safe-area-inset-bottom, 0px) + 22px) !important; margin-left:10px !important; }
+    .map-type-toggle .type-btn { padding:6px 10px !important; font-size:12px !important; }
     #amenityBox { margin-top:6px; padding-top:6px; }
-    #searchResults { max-height:32vh; }
-    .sr-item { padding:9px 8px; }
+    #searchResults { max-height:30vh; }
+    .sr-item { padding:8px 8px; }
     button.mini { padding:6px 10px; font-size:12px; }
-    button.chip { padding:6px 10px; font-size:12px; }
+    button.chip { padding:5px 9px; font-size:11px; }
+    .am-pin { transform:scale(.78); }
+    .bldg-label { font-size:9px !important; }
+    .leaflet-control-attribution { font-size:9px; }
   }
 </style>
 </head>
@@ -124,7 +134,7 @@
     <div class="form-group">
       <label>Điểm xuất phát:</label>
       <div class="combo-wrap">
-        <input type="text" id="startInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đi..." autocomplete="off">
+        <input type="text" id="startInput" class="combo-input" placeholder="Điểm đi: gõ tên hoặc chọn..." autocomplete="off">
         <button type="button" id="clearStart" class="combo-clear" title="Xóa">✕</button>
       </div>
       <input type="hidden" id="startPoint" value="">
@@ -137,16 +147,17 @@
     <div class="form-group">
       <label>Điểm đến:</label>
       <div class="combo-wrap">
-        <input type="text" id="endInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đến..." autocomplete="off">
+        <input type="text" id="endInput" class="combo-input" placeholder="Điểm đến: gõ tên hoặc chọn..." autocomplete="off">
         <button type="button" id="clearEnd" class="combo-clear" title="Xóa">✕</button>
       </div>
       <input type="hidden" id="endPoint" value="">
       <div id="endList" class="combo-list"></div>
     </div>
 
-    <button id="btnFind">Tìm đường ngắn nhất</button>
-    <button id="btnClear" class="sec">Xóa kết quả</button>
-    <div id="result"></div>
+    <div class="btn-row">
+      <button id="btnFind">Tìm đường ngắn nhất</button>
+      <button id="btnClear" class="sec">Xóa kết quả</button>
+    </div>
 
     <details id="amenityBox" open>
       <summary>🔎 Tra cứu tiện ích</summary>
@@ -159,6 +170,7 @@
       <div id="chipRow"></div>
     </details>
   </div>
+  <div id="result"></div>
 </div>
 
 <div id="map"></div>
@@ -183,7 +195,8 @@ const map = L.map('map', {
 
 function updateBldgLabelsVisibility() {
   const container = map.getContainer();
-  if (map.getZoom() >= 18) {
+  const minZ = window.matchMedia('(max-width: 600px)').matches ? 19 : 18;
+  if (map.getZoom() >= minZ) {
     container.classList.remove('hide-bldg-labels');
   } else {
     container.classList.add('hide-bldg-labels');
@@ -515,7 +528,7 @@ function setPlaceAs(which, id){
   }
   clrBtn.style.display = 'block';
   $result.className = '';
-  $result.textContent = (isStart ? 'Điểm xuất phát: ' : 'Điểm đến: ') + txtInput.value;
+  $result.textContent = '';
 }
 
 function setupComboBox(which){
@@ -868,16 +881,17 @@ document.getElementById('btnFind').onclick=()=>{
   map.fitBounds(line.getBounds(), { padding: [60, 60] });
 
   $result.textContent = `Quãng đường ≈ ${r.length.toFixed(0)} m (~${Math.ceil(r.length / 80)} phút đi bộ)`;
+  if(isNarrow()) setPanel(false);
 };
 document.getElementById('btnClear').onclick=()=>{ routeLayer.clearLayers(); $result.textContent=''; };
 
 const $btnToggle = document.getElementById('btnTogglePanel');
 const $panelBody = document.getElementById('panelBody');
-$btnToggle.onclick = () => {
-  const isHidden = $panelBody.style.display === 'none';
-  $panelBody.style.display = isHidden ? 'block' : 'none';
-  $btnToggle.textContent = isHidden ? '▲ Thu gọn' : '▼ Tìm đường';
-};
+function setPanel(open){
+  $panelBody.style.display = open ? 'block' : 'none';
+  $btnToggle.textContent = open ? '▲ Thu gọn' : '▼ Mở bảng';
+}
+$btnToggle.onclick = () => setPanel($panelBody.style.display === 'none');
 
 /* ====================== 6. XỬ LÝ CLICK BẢN ĐỒ & ĐỊNH VỊ GPS ====================== */
 const LocateControl = L.Control.extend({
