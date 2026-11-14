@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>WebGIS Tìm Đường Đi - Đại học Nha Trang</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  body, html { margin:0; padding:0; height:100%; width:100%; font-family: Arial, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; overflow:hidden; }
+  #map { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%; height:100dvh; background:#000; }
+  .panel { position:absolute; top:15px; right:15px; z-index:1000; background:#fff; padding:14px;
+           border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,.3); width:330px; max-height:92vh; overflow:auto; transition: all 0.25s ease; }
+  .panel-header { display:flex; justify-content:space-between; align-items:center; }
+  h3 { margin:0; color:#0066cc; font-size:16px; }
+  .toggle-btn { width:auto; padding:3px 8px; font-size:11px; margin:0; background:#f0f2f5; color:#333; border:1px solid #ccc; border-radius:4px; cursor:pointer; }
+  .toggle-btn:hover { background:#e4e6eb; }
+  .form-group { margin-bottom:9px; position:relative; }
+  label { display:block; font-weight:bold; font-size:12px; margin-bottom:4px; color:#222; }
+  button { width:100%; padding:8px; border-radius:6px; border:none; background:#0066cc; color:#fff; font-weight:bold; cursor:pointer; margin-top:5px; box-sizing:border-box; }
+  button:hover { background:#004999; }
+  button.sec { background:#6c757d; }
+  button.sec:hover { background:#565e64; }
+  #result { font-size:13px; margin-top:8px; font-weight:bold; color:#198754; line-height:1.4; }
+  #result.err { color:#dc3545; }
+
+  /* ===== Nhãn tên tòa nhà nhỏ cố định, màu xanh than dịu mắt ===== */
+  .bldg-label {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    font-weight: 600;
+    color: #1e293b;
+    text-shadow: 0 0 3px #ffffff, 0 0 3px #ffffff, 1px 1px 1px rgba(255,255,255,0.9);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .hide-bldg-labels .bldg-label { display: none !important; }
+
+  /* ===== Combo-box tìm & chọn địa điểm gọn nhẹ ===== */
+  .combo-wrap { position:relative; display:flex; align-items:center; }
+  .combo-input { width:100%; padding:8px 28px 8px 9px; border-radius:6px; border:1px solid #bbb; font-size:13px; box-sizing:border-box; background:#fff; color:#222; }
+  .combo-input:focus { outline:none; border-color:#0066cc; box-shadow:0 0 0 2px rgba(0,102,204,.15); }
+  .combo-clear { position:absolute; right:6px; top:50%; transform:translateY(-50%); width:20px; height:20px; padding:0; margin:0;
+                 background:#e9ecef; color:#555; border-radius:50%; font-size:11px; line-height:20px; text-align:center; display:none; }
+  .combo-clear:hover { background:#ced4da; color:#000; }
+  .combo-list { display:none; position:absolute; left:0; right:0; top:100%; margin-top:3px; background:#fff; border:1px solid #ccc;
+                border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,.22); max-height:210px; overflow-y:auto; z-index:1200; }
+  .combo-grp { padding:5px 9px; font-size:11px; font-weight:bold; color:#0066cc; background:#f4f7fb; border-bottom:1px solid #e5ebf3; position:sticky; top:0; }
+  .combo-opt { padding:7px 10px; font-size:13px; cursor:pointer; border-bottom:1px solid #f3f3f3; display:flex; justify-content:space-between; align-items:center; }
+  .combo-opt:last-child { border-bottom:none; }
+  .combo-opt:hover { background:#e8f2ff; color:#0056b3; }
+  .combo-opt.user-loc { color:#198754; font-weight:bold; background:#f2fbf6; }
+
+  /* Nút chuyển đổi Bản đồ / Vệ tinh */
+  .map-type-toggle { display:flex; background:#fff; border-radius:8px; box-shadow:0 3px 12px rgba(0,0,0,.3); overflow:hidden; border:1px solid #bbb; margin-bottom:22px !important; margin-left:15px !important; z-index:999; }
+  .map-type-toggle .type-btn { background:#fff; color:#333; border:none; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; margin:0; border-radius:0; white-space:nowrap; display:flex; align-items:center; gap:4px; }
+  .map-type-toggle .type-btn.active { background:#0066cc; color:#fff; }
+  .map-type-toggle .type-btn:first-child { border-right:1px solid #ddd; }
+  .map-type-toggle .type-btn:hover:not(.active) { background:#f0f2f5; }
+
+  /* ===== Tra cứu tiện ích ===== */
+  #amenityBox { margin-top:10px; border-top:1px solid #e3e6ea; padding-top:8px; }
+  #amenityBox summary { font-weight:bold; font-size:12px; cursor:pointer; color:#0066cc; }
+  #searchBox { width:100%; box-sizing:border-box; padding:7px 9px; margin-top:6px; border:1px solid #ccc; border-radius:5px; font-size:13px; }
+  #searchResults { display:none; margin-top:4px; border:1px solid #ddd; border-radius:6px; max-height:190px; overflow:auto; background:#fff; }
+  .sr-hint { padding:5px 8px; font-size:11px; font-weight:bold; color:#0066cc; background:#f4f7fb; border-bottom:1px solid #e5ebf3; }
+  .sr-item { display:flex; align-items:center; gap:6px; padding:6px 8px; border-bottom:1px solid #f0f0f0; cursor:pointer; font-size:12px; }
+  .sr-item:last-child { border-bottom:none; }
+  .sr-item:hover { background:#eef5ff; }
+  .sr-ico { flex:0 0 auto; font-size:15px; }
+  .sr-txt { flex:1 1 auto; min-width:0; }
+  .sr-txt b { display:block; font-size:12px; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sr-txt small { color:#777; font-size:11px; }
+  .sr-empty { padding:8px; font-size:12px; color:#777; }
+  button.mini { width:auto; margin:0 0 0 3px; padding:3px 7px; font-size:11px; border-radius:4px; }
+  .sr-item button.mini, .am-pop button.mini { margin:0; }
+  .chip-head { display:flex; justify-content:space-between; align-items:center; margin:8px 0 3px; font-size:11px; font-weight:bold; color:#444; }
+  #chipRow { display:flex; flex-wrap:wrap; gap:4px; }
+  button.chip { width:auto; margin:0; padding:4px 8px; font-size:11px; font-weight:bold; border-radius:14px;
+                background:#fff; color:#333; border:1.5px solid var(--c,#999); }
+  button.chip .cnt { font-weight:normal; color:#666; }
+  button.chip.off { opacity:.45; background:#f3f4f6; border-style:dashed; }
+  button.chip:hover { background:#f0f2f5; }
+  .am-icon { background:none; border:none; }
+  .am-pin { width:32px; height:32px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.45);
+            display:flex; align-items:center; justify-content:center; font-size:17px; line-height:1; }
+  .am-pop { line-height:1.45; min-width:160px; }
+  .am-pop .row { display:flex; gap:5px; margin-top:6px; }
+
+  @media (max-width: 600px) {
+    .panel { top:10px; left:56px; right:10px; width:auto; padding:8px 10px; border-radius:8px; max-height:78vh; }
+    h3 { font-size:13px; }
+    .form-group { margin-bottom:5px; }
+    label { font-size:11px; margin-bottom:2px; }
+    .combo-input, #searchBox { font-size:16px; padding:7px 26px 7px 8px; }
+    .combo-list { max-height:175px; }
+    .combo-opt { padding:9px 10px; }
+    button { padding:6px; font-size:12px; margin-top:4px; }
+    #btnLocate { font-size:11px !important; padding:5px !important; margin-top:4px !important; }
+    #result { font-size:12px; margin-top:5px; }
+    .map-type-toggle { margin-bottom:calc(env(safe-area-inset-bottom, 0px) + 30px) !important; margin-left:10px !important; }
+    .map-type-toggle .type-btn { padding:7px 12px !important; font-size:12px !important; }
+    #amenityBox { margin-top:6px; padding-top:6px; }
+    #searchResults { max-height:32vh; }
+    .sr-item { padding:9px 8px; }
+    button.mini { padding:6px 10px; font-size:12px; }
+    button.chip { padding:6px 10px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="panel-header">
+    <h3>WebGIS NTU - Tìm Đường</h3>
+    <button type="button" id="btnTogglePanel" class="toggle-btn" title="Thu gọn / Mở rộng">▲ Thu gọn</button>
+  </div>
+  <div id="panelBody" style="margin-top: 8px;">
+    <div class="form-group">
+      <label>Điểm xuất phát:</label>
+      <div class="combo-wrap">
+        <input type="text" id="startInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đi..." autocomplete="off">
+        <button type="button" id="clearStart" class="combo-clear" title="Xóa">✕</button>
+      </div>
+      <input type="hidden" id="startPoint" value="">
+      <div id="startList" class="combo-list"></div>
+      <button type="button" id="btnLocate" style="background:#198754; font-size:12px; padding:6px; margin-top:6px;">
+        📍 Vị trí hiện tại của tôi
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label>Điểm đến:</label>
+      <div class="combo-wrap">
+        <input type="text" id="endInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đến..." autocomplete="off">
+        <button type="button" id="clearEnd" class="combo-clear" title="Xóa">✕</button>
+      </div>
+      <input type="hidden" id="endPoint" value="">
+      <div id="endList" class="combo-list"></div>
+    </div>
+
+    <button id="btnFind">Tìm đường ngắn nhất</button>
+    <button id="btnClear" class="sec">Xóa kết quả</button>
+    <div id="result"></div>
+
+    <details id="amenityBox" open>
+      <summary>🔎 Tra cứu tiện ích</summary>
+      <input type="search" id="searchBox" placeholder="Bấm xem gợi ý hoặc gõ tên tiện ích..." autocomplete="off">
+      <div id="searchResults"></div>
+      <div class="chip-head">
+        <span>Lọc tiện ích theo nhóm:</span>
+        <span><button type="button" class="mini sec" id="chipAll">Tất cả</button><button type="button" class="mini sec" id="chipNone">Ẩn hết</button></span>
+      </div>
+      <div id="chipRow"></div>
+    </details>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ====================== 1. BẢN ĐỒ ====================== */
+// Siết chặt giới hạn khung nhìn sát khuôn viên Đại học Nha Trang
+const ntuBounds = L.latLngBounds(
+  [12.2645, 109.1980], // Tây Nam (sát mép trong trường)
+  [12.2725, 109.2060]  // Đông Bắc (sát mép trong trường)
+);
+
+
+const map = L.map('map', {
+  center: [12.2685, 109.2018], 
+  zoom: 18, 
+  minZoom: 18, // Bắt buộc zoom tối thiểu mức 18 để trường phủ kín màn hình
+  maxZoom: 21,
+  maxBoundsViscosity: 1.0
+});
+
+function updateBldgLabelsVisibility() {
+  const container = map.getContainer();
+  if (map.getZoom() >= 18) {
+    container.classList.remove('hide-bldg-labels');
+  } else {
+    container.classList.add('hide-bldg-labels');
+  }
+}
+map.on('zoomend', updateBldgLabelsVisibility);
+updateBldgLabelsVisibility();
+
+const googleStreets = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+  maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'NTU WebGIS Team'
+}).addTo(map);
+
+const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+  maxZoom: 21, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: 'NTU WebGIS Team'
+});
+
+const MapTypeControl = L.Control.extend({
+  options: { position: 'bottomleft' },
+  onAdd: function() {
+    const div = L.DomUtil.create('div', 'map-type-toggle');
+    div.innerHTML = `
+      <button type="button" id="btnTypeStreets" class="type-btn active">🗺️ Bản đồ</button>
+      <button type="button" id="btnTypeHybrid" class="type-btn">🛰️ Vệ tinh</button>
+    `;
+    L.DomEvent.disableClickPropagation(div);
+    return div;
+  }
+});
+map.addControl(new MapTypeControl());
+
+document.getElementById('btnTypeStreets').onclick = () => {
+  if (!map.hasLayer(googleStreets)) {
+    map.removeLayer(googleHybrid); map.addLayer(googleStreets);
+    document.getElementById('btnTypeStreets').classList.add('active');
+    document.getElementById('btnTypeHybrid').classList.remove('active');
+  }
+};
+document.getElementById('btnTypeHybrid').onclick = () => {
+  if (!map.hasLayer(googleHybrid)) {
+    map.removeLayer(googleStreets); map.addLayer(googleHybrid);
+    document.getElementById('btnTypeHybrid').classList.add('active');
+    document.getElementById('btnTypeStreets').classList.remove('active');
+  }
+};
+
+const campusGroup = L.featureGroup().addTo(map);
+const routeLayer  = L.featureGroup().addTo(map);
+const userLocationLayer = L.featureGroup().addTo(map);
+let myCurrentLocation = null;
+let userLocLabel = '';
+
+/* ====================== 2. HÀM TIỆN ÍCH ====================== */
+function getName(props, fallback) {
+  if (props) {
+    for (const k of Object.keys(props)) {
+      if (['name','ten','ten_toa_nha','tentoanha','ten_duong','ten_tienich'].includes(k.toLowerCase()) && props[k]) return String(props[k]);
+    }
+  }
+  return fallback;
+}
+function fold(s){
+  return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function haversine(a, b) {
+  const R = 6371000, rad = Math.PI/180;
+  const dLat = (b[1]-a[1])*rad, dLng = (b[0]-a[0])*rad;
+  const h = Math.sin(dLat/2)**2 + Math.cos(a[1]*rad)*Math.cos(b[1]*rad)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function projectOnSegment(p, a, b) {
+  const kx = Math.cos(p[1]*Math.PI/180);
+  const ax=a[0]*kx, ay=a[1], bx=b[0]*kx, by=b[1], px=p[0]*kx, py=p[1];
+  const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
+  let t = len2===0 ? 0 : ((px-ax)*dx+(py-ay)*dy)/len2;
+  t = Math.max(0, Math.min(1, t));
+  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+}
+class MinHeap {
+  constructor(){ this.h=[]; }
+  push(item){ const h=this.h; h.push(item); let i=h.length-1;
+    while(i>0){ const p=(i-1)>>1; if(h[p][0]<=h[i][0]) break; [h[p],h[i]]=[h[i],h[p]]; i=p; } }
+  pop(){ const h=this.h; if(!h.length) return null; const top=h[0], last=h.pop();
+    if(h.length){ h[0]=last; let i=0;
+      for(;;){ let l=2*i+1, r=l+1, m=i;
+        if(l<h.length && h[l][0]<h[m][0]) m=l;
+        if(r<h.length && h[r][0]<h[m][0]) m=r;
+        if(m===i) break; [h[m],h[i]]=[h[i],h[m]]; i=m; } }
+    return top; }
+  get size(){ return this.h.length; }
+}
+
+/* ====================== 3. ĐỒ THỊ ĐƯỜNG ĐI ====================== */
+const nodeCoord = new Map(), adj = new Map(), segments = [];
+const key = c => c[0].toFixed(7)+','+c[1].toFixed(7);
+function addNode(c){ const k=key(c); if(!nodeCoord.has(k)){ nodeCoord.set(k,c); adj.set(k,new Map()); } return k; }
+function addEdge(ka,kb,w){ if(ka===kb) return; adj.get(ka).set(kb,w); adj.get(kb).set(ka,w); }
+function addLine(coords){
+  for(let i=0;i<coords.length-1;i++){
+    const ka=addNode(coords[i]), kb=addNode(coords[i+1]);
+    addEdge(ka,kb,haversine(coords[i],coords[i+1]));
+    segments.push({a:ka,b:kb});
+  }
+}
+function buildGraph(geojson){
+  for(const f of geojson.features){
+    const g=f.geometry; if(!g) continue;
+    if(g.type==='LineString') addLine(g.coordinates);
+    else if(g.type==='MultiLineString') g.coordinates.forEach(addLine);
+  }
+}
+function labelComponents(){
+  const comp=new Map(), size=[];
+  for(const s of adj.keys()){
+    if(comp.has(s)) continue;
+    const id=size.length; let cnt=0; const st=[s]; comp.set(s,id);
+    while(st.length){ const u=st.pop(); cnt++;
+      for(const v of adj.get(u).keys()) if(!comp.has(v)){ comp.set(v,id); st.push(v); } }
+    size.push(cnt);
+  }
+  return {comp,size};
+}
+function bridgeGaps(tolM){
+  let joined=0;
+  for(;;){
+    const {comp}=labelComponents(); let best=null;
+    for(const [n,cn] of comp){
+      const p=nodeCoord.get(n);
+      for(const s of segments){
+        if(comp.get(s.a)===cn) continue;
+        const a=nodeCoord.get(s.a), b=nodeCoord.get(s.b), pad=0.0001;
+        if(p[0]<Math.min(a[0],b[0])-pad||p[0]>Math.max(a[0],b[0])+pad||
+           p[1]<Math.min(a[1],b[1])-pad||p[1]>Math.max(a[1],b[1])+pad) continue;
+        const q=projectOnSegment(p,a,b), d=haversine(p,q);
+        if(d<=tolM&&(!best||d<best.d)) best={d,n,q,s};
+      }
+    }
+    if(!best) return joined;
+    const {d,n,q,s}=best, a=nodeCoord.get(s.a), b=nodeCoord.get(s.b);
+    let target;
+    if(haversine(q,a)<0.05) target=s.a;
+    else if(haversine(q,b)<0.05) target=s.b;
+    else {
+      target=addNode(q);
+      adj.get(s.a).delete(s.b); adj.get(s.b).delete(s.a);
+      addEdge(s.a,target,haversine(a,q)); addEdge(target,s.b,haversine(q,b));
+      segments.push({a:target,b:s.b}); s.b=target;
+    }
+    addEdge(n,target,d); segments.push({a:n,b:target}); joined++;
+  }
+}
+let mainSegments=[];
+function keepMainComponent(){
+  const {comp,size}=labelComponents();
+  let main=0; size.forEach((c,i)=>{ if(c>size[main]) main=i; });
+  mainSegments=segments.filter(s=>comp.get(s.a)===main);
+}
+function snap(p){
+  let best=null;
+  for(const s of mainSegments){
+    const q=projectOnSegment(p,nodeCoord.get(s.a),nodeCoord.get(s.b));
+    const d=haversine(p,q);
+    if(!best||d<best.d) best={d,q,seg:s};
+  }
+  return best;
+}
+function connectNearJunctions(tolM){
+  for(const [n, neighbors] of adj){
+    if(neighbors.size > 2) continue;
+    const p = nodeCoord.get(n); let best = null;
+    for(const s of segments){
+      if(s.a === n || s.b === n) continue;
+      if(adj.get(n).has(s.a) || adj.get(n).has(s.b)) continue;
+      const a = nodeCoord.get(s.a), b = nodeCoord.get(s.b), pad = 0.0001;
+      if(p[0]<Math.min(a[0],b[0])-pad||p[0]>Math.max(a[0],b[0])+pad||
+         p[1]<Math.min(a[1],b[1])-pad||p[1]>Math.max(a[1],b[1])+pad) continue;
+      const q = projectOnSegment(p, a, b), d = haversine(p, q);
+      if(d <= tolM && (!best || d < best.d)) best = { d, q, s };
+    }
+    if(best && best.d <= tolM){
+      const {d, q, s} = best, a = nodeCoord.get(s.a), b = nodeCoord.get(s.b);
+      let target;
+      if(haversine(q, a) < 0.1) target = s.a;
+      else if(haversine(q, b) < 0.1) target = s.b;
+      else {
+        target = addNode(q);
+        adj.get(s.a).delete(s.b); adj.get(s.b).delete(s.a);
+        addEdge(s.a, target, haversine(a, q)); addEdge(target, s.b, haversine(q, b));
+        segments.push({a: target, b: s.b}); s.b = target;
+      }
+      addEdge(n, target, d); segments.push({a: n, b: target});
+    }
+  }
+}
+function pointInPolygon(pt, ring){
+  let inside = false;
+  for(let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+    if(((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function distToPolygon(pt, ring){
+  if(pointInPolygon(pt, ring)) return 0;
+  let minD = Infinity;
+  for(let i=0; i<ring.length-1; i++){
+    const d = haversine(pt, projectOnSegment(pt, ring[i], ring[i+1]));
+    if(d < minD) minD = d;
+  }
+  return minD;
+}
+function getCandidateSnaps(place){
+  const touchingCandidates = [], nearbyCandidates = [], seenKeys = new Set(), mainNodes = new Set();
+  mainSegments.forEach(s => { mainNodes.add(s.a); mainNodes.add(s.b); });
+  if(place && place.ring && place.ring.length){
+    for(const k of mainNodes){
+      const p = nodeCoord.get(k);
+      if(p[0] < place.minX - 0.00015 || p[0] > place.maxX + 0.00015 ||
+         p[1] < place.minY - 0.00015 || p[1] > place.maxY + 0.00015) continue;
+      if(distToPolygon(p, place.ring) <= 5.0){
+        const s = snap(p); if(!s) continue;
+        const actualD = distToPolygon(s.q, place.ring);
+        if(actualD > 5.0) continue;
+        const k2 = s.q[0].toFixed(5)+','+s.q[1].toFixed(5);
+        if(!seenKeys.has(k2)){
+          seenKeys.add(k2); s.distToBuilding = actualD;
+          if(actualD <= 2.0) touchingCandidates.push(s); else nearbyCandidates.push(s);
+        }
+      }
+    }
+  }
+  if(touchingCandidates.length){
+    const minD = Math.min(...touchingCandidates.map(c => c.distToBuilding));
+    if(minD <= 0.3) return touchingCandidates.filter(c => c.distToBuilding <= Math.max(minD + 0.2, 0.4));
+    return touchingCandidates;
+  }
+  if(nearbyCandidates.length) return nearbyCandidates;
+  if(place && place.center) return [snap(place.center)];
+  return [];
+}
+function dijkstraBetween(sS, sE){
+  if(!sS || !sE) return null;
+  const S='__S__', E='__E__', extra=new Map();
+  const coordOf=k=>k===S?sS.q:k===E?sE.q:nodeCoord.get(k);
+  const link=(v,k,w)=>{ if(!extra.has(v)) extra.set(v,[]); extra.get(v).push([k,w]); if(!extra.has(k)) extra.set(k,[]); extra.get(k).push([v,w]); };
+  for(const [v,s] of [[S,sS],[E,sE]]){
+    link(v,s.seg.a,haversine(s.q,nodeCoord.get(s.seg.a)));
+    link(v,s.seg.b,haversine(s.q,nodeCoord.get(s.seg.b)));
+  }
+  if(sS.seg===sE.seg || (sS.seg.a===sE.seg.a&&sS.seg.b===sE.seg.b)) link(S,E,haversine(sS.q,sE.q));
+  const neighbors=function*(u){
+    if(adj.has(u)) for(const [v,w] of adj.get(u)) yield [v,w];
+    if(extra.has(u)) for(const x of extra.get(u)) yield x;
+  };
+  const dist=new Map([[S,0]]), prev=new Map(), heap=new MinHeap(); heap.push([0,S]);
+  while(heap.size){
+    const [d,u]=heap.pop();
+    if(d>(dist.get(u)??Infinity)) continue;
+    if(u===E) break;
+    for(const [v,w] of neighbors(u)){
+      const nd=d+w;
+      if(nd<(dist.get(v)??Infinity)){ dist.set(v,nd); prev.set(v,u); heap.push([nd,v]); }
+    }
+  }
+  if(!dist.has(E)) return null;
+  const path=[]; for(let u=E;u!==undefined;u=prev.get(u)) path.push(coordOf(u));
+  path.reverse();
+  return {length:dist.get(E), path, sS, sE};
+}
+function shortestPath(placeStart, placeEnd){
+  const starts = getCandidateSnaps(placeStart), ends = getCandidateSnaps(placeEnd);
+  let best = null;
+  for(const sS of starts) for(const sE of ends){
+    const r = dijkstraBetween(sS, sE);
+    if(r && (!best || r.length < best.length)) best = r;
+  }
+  return best;
+}
+
+/* ====================== 3b. TIỆN ÍCH & GỢI Ý ====================== */
+const AMENITY_GROUPS = {
+  Khu_an:     { label:'Ăn uống',    icon:'🍴', color:'#e8590c' },
+  Hoc_tap:    { label:'Học tập',    icon:'📚', color:'#1c7ed6' },
+  Khu_tu_hoc: { label:'Tự học',     icon:'✏️', color:'#7048e8' },
+  Giai_tri:   { label:'Giải trí',   icon:'🎮', color:'#d6336c' },
+  The_thao:   { label:'Thể thao',   icon:'💪', color:'#2f9e44' },
+  Giu_xe:     { label:'Giữ xe',     icon:'🛵', color:'#495057' },
+  Dich_vu:    { label:'Dịch vụ',    icon:'🖨️', color:'#f08c00' },
+  HanhChinh:  { label:'Hành chính', icon:'🏛️', color:'#0c8599' },
+  Khac:       { label:'Khác',       icon:'📍', color:'#868e96' }
+};
+const LOAI_ALIAS = {
+  khuan:'Khu_an', anuong:'Khu_an', khuanuong:'Khu_an', cantin:'Khu_an', canteen:'Khu_an', antin:'Khu_an', quanan:'Khu_an', doan:'Khu_an',
+  hoctap:'Hoc_tap', khutuhoc:'Khu_tu_hoc', tuhoc:'Khu_tu_hoc', giaitri:'Giai_tri',
+  thethao:'The_thao', giuxe:'Giu_xe', guixe:'Giu_xe', baixe:'Giu_xe',
+  dichvu:'Dich_vu', hanhchinh:'HanhChinh'
+};
+function normalizeLoai(v){ return LOAI_ALIAS[fold(v).replace(/[^a-z]/g,'')] || 'Khac'; }
+function amenityGroupOf(props){
+  const p = props || {}, n = fold(p.Ten_TienIch || p.name || '');
+  if(/can ?tin|canteen/.test(n)) return 'Khu_an';
+  if(/phong dao tao/.test(n)) return 'HanhChinh';
+  const code = normalizeLoai(p.Loai);
+  if(code !== 'Khac') return code;
+  if(/giu xe|gui xe|bai xe/.test(n)) return 'Giu_xe';
+  if(/san |the thao|cau long|bong ro|bong chuyen/.test(n)) return 'The_thao';
+  if(/thu vien/.test(n)) return 'Hoc_tap';
+  if(/tu hoc/.test(n)) return 'Khu_tu_hoc';
+  if(/hanh chinh|hoi sinh vien|phong dao tao/.test(n)) return 'HanhChinh';
+  if(/photo|in an|dich vu/.test(n)) return 'Dich_vu';
+  return 'Khac';
+}
+function makeAmenityIcon(code){
+  const g = AMENITY_GROUPS[code] || AMENITY_GROUPS.Khac;
+  return L.divIcon({ className:'am-icon', html:`<div class="am-pin" style="background:${g.color}">${g.icon}</div>`, iconSize:[32,32], iconAnchor:[16,16], popupAnchor:[0,-16] });
+}
+
+function setPlaceAs(which, id){
+  const isStart = (which === 'start');
+  const valInput = document.getElementById(isStart ? 'startPoint' : 'endPoint');
+  const txtInput = document.getElementById(isStart ? 'startInput' : 'endInput');
+  const clrBtn   = document.getElementById(isStart ? 'clearStart' : 'clearEnd');
+
+  valInput.value = String(id);
+  if (id === 'user_current_location') {
+    txtInput.value = userLocLabel || '[Vị trí hiện tại của tôi]';
+  } else {
+    txtInput.value = places[id].name;
+  }
+  clrBtn.style.display = 'block';
+  $result.className = '';
+  $result.textContent = (isStart ? 'Điểm xuất phát: ' : 'Điểm đến: ') + txtInput.value;
+}
+
+function setupComboBox(which){
+  const isStart  = (which === 'start');
+  const txtInput = document.getElementById(isStart ? 'startInput' : 'endInput');
+  const valInput = document.getElementById(isStart ? 'startPoint' : 'endPoint');
+  const listBox  = document.getElementById(isStart ? 'startList'  : 'endList');
+  const clrBtn   = document.getElementById(isStart ? 'clearStart' : 'clearEnd');
+
+  function renderList(filterText){
+    const q = fold(filterText);
+    listBox.innerHTML = '';
+
+    if (isStart && myCurrentLocation) {
+      const div = document.createElement('div');
+      div.className = 'combo-opt user-loc';
+      div.innerHTML = `<span>📍 ${userLocLabel || 'Vị trí hiện tại của tôi'}</span><small>GPS</small>`;
+      div.onmousedown = (e) => { e.preventDefault(); setPlaceAs('start', 'user_current_location'); listBox.style.display = 'none'; };
+      listBox.appendChild(div);
+    }
+
+    ['Tòa nhà', 'Tiện ích'].forEach(grp => {
+      const matched = [];
+      places.forEach((p, id) => {
+        if (p.kind === grp && (!q || fold(p.name).includes(q))) matched.push({p, id});
+      });
+      if (!matched.length) return;
+
+      const head = document.createElement('div');
+      head.className = 'combo-grp';
+      head.textContent = (grp === 'Tòa nhà' ? '🏢 ' : '📌 ') + `${grp} (${matched.length})`;
+      listBox.appendChild(head);
+
+      matched.forEach(({p, id}) => {
+        const opt = document.createElement('div');
+        opt.className = 'combo-opt';
+        opt.innerHTML = `<span>${p.name}</span>`;
+        opt.onmousedown = (e) => {
+          e.preventDefault();
+          setPlaceAs(which, id);
+          listBox.style.display = 'none';
+        };
+        listBox.appendChild(opt);
+      });
+    });
+
+    if (!listBox.children.length) {
+      listBox.innerHTML = `<div class="sr-empty">Không tìm thấy địa điểm "${filterText}"</div>`;
+    }
+    listBox.style.display = 'block';
+  }
+
+  txtInput.addEventListener('focus', () => { renderList(valInput.value !== '' ? '' : txtInput.value); });
+  txtInput.addEventListener('input', () => {
+    valInput.value = '';
+    clrBtn.style.display = txtInput.value ? 'block' : 'none';
+    renderList(txtInput.value);
+  });
+  txtInput.addEventListener('blur', () => { setTimeout(() => { listBox.style.display = 'none'; }, 150); });
+  clrBtn.onclick = () => { txtInput.value = ''; valInput.value = ''; clrBtn.style.display = 'none'; txtInput.focus(); };
+}
+
+function amenityPopup(l){
+  const p = l.feature.properties || {}, g = AMENITY_GROUPS[amenityGroupOf(p)];
+  const box = document.createElement('div'); box.className='am-pop';
+  const t = document.createElement('b'); t.style.color = g.color; t.textContent = g.icon + ' ' + getName(p,'Tiện ích');
+  const sub = document.createElement('div'); sub.style.cssText='font-size:12px;color:#555'; sub.textContent = 'Nhóm: ' + g.label;
+  box.append(t, sub);
+  if(l._placeId !== undefined){
+    const row = document.createElement('div'); row.className='row';
+    [['start','Đặt làm điểm đi'],['end','Đặt làm điểm đến']].forEach(([w,txt])=>{
+      const b = document.createElement('button'); b.type='button'; b.className='mini'; b.textContent = txt;
+      b.onclick = () => setPlaceAs(w, l._placeId);
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+  }
+  return box;
+}
+
+const amenityGroup = L.featureGroup().addTo(campusGroup), amenityItems = [], activeGroups = new Set();
+function registerAmenities(layer){
+  layer.eachLayer(l=>{
+    const g = amenityGroupOf(l.feature.properties);
+    amenityItems.push({layer:l, group:g}); activeGroups.add(g); amenityGroup.addLayer(l);
+  });
+  renderChips();
+}
+function applyFilter(){
+  amenityItems.forEach(it=>{
+    const on = activeGroups.has(it.group), shown = amenityGroup.hasLayer(it.layer);
+    if(on && !shown) amenityGroup.addLayer(it.layer);
+    else if(!on && shown) amenityGroup.removeLayer(it.layer);
+  });
+  renderChips();
+}
+function renderChips(){
+  const row = document.getElementById('chipRow'); row.innerHTML='';
+  const count = {}; amenityItems.forEach(it=>{ count[it.group]=(count[it.group]||0)+1; });
+  Object.keys(AMENITY_GROUPS).forEach(code=>{
+    if(!count[code]) return;
+    const g = AMENITY_GROUPS[code], b = document.createElement('button'); b.type='button';
+    b.className = 'chip' + (activeGroups.has(code) ? '' : ' off');
+    b.style.setProperty('--c', g.color);
+    b.innerHTML = `${g.icon} ${g.label} <span class="cnt">(${count[code]})</span>`;
+    b.onclick = () => { activeGroups.has(code) ? activeGroups.delete(code) : activeGroups.add(code); applyFilter(); };
+    row.appendChild(b);
+  });
+}
+document.getElementById('chipAll').onclick  = () => { amenityItems.forEach(it=>activeGroups.add(it.group)); applyFilter(); };
+document.getElementById('chipNone').onclick = () => { activeGroups.clear(); applyFilter(); };
+
+const $q  = document.getElementById('searchBox');
+const $sr = document.getElementById('searchResults');
+
+function locatePlace(id){
+  const p = places[id];
+  if(p.kind === 'Tiện ích'){
+    const g = amenityGroupOf(p.layer.feature.properties);
+    if(!activeGroups.has(g)){ activeGroups.add(g); applyFilter(); }
+  }
+  if(isNarrow()){ $sr.style.display='none'; $q.blur(); }
+  map.flyTo([p.center[1], p.center[0]], Math.max(map.getZoom(), 19), {duration:0.8});
+  setTimeout(()=>{ try{ p.layer.openPopup(); }catch(e){} }, 900);
+}
+
+function renderAmenityItems(list, isSample){
+  $sr.innerHTML = '';
+  $sr.style.display = 'block';
+  if (isSample) {
+    const hint = document.createElement('div');
+    hint.className = 'sr-hint';
+    hint.textContent = '💡 Gợi ý tiện ích tiêu biểu (gõ thêm để tìm):';
+    $sr.appendChild(hint);
+  }
+  if (!list.length) {
+    const d = document.createElement('div');
+    d.className = 'sr-empty';
+    d.textContent = 'Không tìm thấy tiện ích phù hợp.';
+    $sr.appendChild(d);
+    return;
+  }
+  list.slice(0, 10).forEach(({p, id}) => {
+    const g = AMENITY_GROUPS[amenityGroupOf(p.layer.feature.properties)];
+    const row = document.createElement('div'); row.className = 'sr-item';
+    const i = document.createElement('span'); i.className = 'sr-ico'; i.textContent = g.icon;
+    const tx = document.createElement('span'); tx.className = 'sr-txt';
+    const nm = document.createElement('b'); nm.textContent = p.name;
+    const sm = document.createElement('small'); sm.textContent = 'Tiện ích · ' + g.label;
+    tx.append(nm, sm);
+    row.append(i, tx);
+    [['start','Đi'],['end','Đến']].forEach(([w,txt]) => {
+      const b = document.createElement('button'); b.type='button'; b.className='mini'; b.textContent = txt;
+      b.onclick = ev => { ev.stopPropagation(); setPlaceAs(w, id); $sr.style.display = 'none'; };
+      row.appendChild(b);
+    });
+    row.onclick = () => locatePlace(id);
+    $sr.appendChild(row);
+  });
+}
+
+function runSearch(showSamplesWhenEmpty = false){
+  const q = fold($q.value);
+  if (!q) {
+    if (!showSamplesWhenEmpty) { $sr.style.display = 'none'; return; }
+    const samples = [], usedGroups = new Set();
+    places.forEach((p, id) => {
+      if (p.kind !== 'Tiện ích') return;
+      const g = amenityGroupOf(p.layer.feature.properties);
+      if (!usedGroups.has(g) && samples.length < 4) {
+        usedGroups.add(g);
+        samples.push({p, id});
+      }
+    });
+    renderAmenityItems(samples, true);
+    return;
+  }
+  const hits = [];
+  places.forEach((p, id) => {
+    if (p.kind === 'Tiện ích') {
+      const i = fold(p.name).indexOf(q);
+      if (i >= 0) hits.push({p, id, rank: i === 0 ? 0 : 1});
+    }
+  });
+  hits.sort((a,b) => a.rank - b.rank || a.p.name.localeCompare(b.p.name, 'vi', {numeric:true}));
+  renderAmenityItems(hits, false);
+}
+
+const isNarrow = () => window.matchMedia('(max-width: 600px)').matches;
+if(isNarrow()) document.getElementById('amenityBox').open = false;
+
+$q.addEventListener('focus', () => runSearch(true));
+$q.addEventListener('input', () => runSearch(true));
+$q.addEventListener('keydown', e => { if(e.key === 'Escape'){ $q.value = ''; $sr.style.display = 'none'; } });
+document.addEventListener('click', e => {
+  if (!document.getElementById('amenityBox').contains(e.target)) $sr.style.display = 'none';
+});
+
+/* ====================== 4. NẠP DỮ LIỆU & GẮN NHÃN TÒA NHÀ ====================== */
+const places = [];
+const $result = document.getElementById('result');
+
+async function loadJSON(name){
+  const paths = [
+    '../Cac_duoi/duoi_Geojson/' + name,
+    './Cac_duoi/duoi_Geojson/' + name,
+    './duoi_Geojson/' + name,
+    '../duoi_Geojson/' + name
+  ];
+  for (const url of paths) {
+    try { const r = await fetch(url); if (r.ok) return await r.json(); } catch(e) {}
+  }
+  throw new Error('Không đọc được dữ liệu: ' + name);
+}
+
+function addPlaces(layer, group){
+  const items = [];
+  layer.eachLayer(l=>{
+    const name=getName(l.feature.properties, null); if(!name) return;
+    const c=l.getBounds? l.getBounds().getCenter() : l.getLatLng();
+    let ring = null, minX=180, maxX=-180, minY=90, maxY=-90;
+    if(l.getLatLngs){
+      const pts = [];
+      function extract(arr){
+        if(Array.isArray(arr)) arr.forEach(extract);
+        else if(arr && typeof arr.lat === 'number'){
+          pts.push([arr.lng, arr.lat]);
+          if(arr.lng < minX) minX = arr.lng; if(arr.lng > maxX) maxX = arr.lng;
+          if(arr.lat < minY) minY = arr.lat; if(arr.lat > maxY) maxY = arr.lat;
+        }
+      }
+      extract(l.getLatLngs());
+      if(pts.length > 2) ring = pts;
+    }
+    items.push({name, center:[c.lng,c.lat], ring, minX, maxX, minY, maxY, layer:l, kind:group});
+  });
+  items.sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true, sensitivity: 'base' }));
+  items.forEach(item => { const id = places.push(item) - 1; item.layer._placeId = id; });
+}
+
+async function init(){
+  setupComboBox('start');
+  setupComboBox('end');
+
+  // 1. Nạp Đường Đi
+  try{
+    const roads = await loadJSON('NTU_DuongDi.geojson');
+    L.geoJSON(roads,{
+      style:{color:'#007bff',weight:4,opacity:.8},
+      onEachFeature:(f,l)=>{
+        const p = f.properties || {}, n = getName(p, null);
+        let html = `<div style="line-height:1.4"><b style="color:#007bff">🛣️ ${n ? 'Đường: ' + n : 'Đường nội bộ NTU'}</b>`;
+        if(p.fclass) html += `<br><span style="font-size:12px;color:#555">Loại: ${p.fclass}</span>`;
+        l.bindPopup(html + `</div>`);
+      }
+    }).addTo(campusGroup);
+    buildGraph(roads); bridgeGaps(1.5); connectNearJunctions(1.2); keepMainComponent();
+  }catch(e){ console.error(e); }
+
+  // 2. Nạp Tòa Nhà
+  try{
+    const b = await loadJSON('NTU_ToaNha.geojson');
+    const layer = L.geoJSON(b,{
+      style:{color:'#d9534f',fillColor:'#f0ad4e',fillOpacity:.6,weight:2},
+      onEachFeature:(f,l)=>{
+        const p = f.properties || {}, name = getName(p, 'Khu vực NTU');
+        
+        if (l.getBounds) {
+          l.bindTooltip(name, {
+            permanent: true,
+            direction: 'center',
+            className: 'bldg-label'
+          });
+        }
+
+        let html = `<div style="min-width:140px;line-height:1.4"><b style="font-size:14px;color:#d9534f">🏢 ${name}</b>`;
+        if(p.type) html += `<br><span style="font-size:12px;color:#555">Phân loại: <b>${p.type}</b></span>`;
+        if(p.fid) html += `<br><span style="font-size:11px;color:#888">Mã (fid): #${p.fid}</span>`;
+        l.bindPopup(html + `</div>`);
+      }
+    }).addTo(campusGroup);
+    addPlaces(layer,'Tòa nhà');
+  }catch(e){ console.error(e); }
+
+  // 3. Nạp Tiện Ích
+  try{
+    const t = await loadJSON('NTU_TienIch.geojson');
+    const layer = L.geoJSON(t,{
+      pointToLayer:(f,ll)=>L.marker(ll,{icon:makeAmenityIcon(amenityGroupOf(f.properties)),riseOnHover:true}),
+      onEachFeature:(f,l)=>{ l.bindPopup(()=>amenityPopup(l)); }
+    });
+    addPlaces(layer,'Tiện ích');
+    registerAmenities(layer);
+  }catch(e){ console.error(e); }
+
+  if(campusGroup.getLayers().length && campusGroup.getBounds().isValid()) {
+    map.setMaxBounds(null);
+    map.fitBounds(campusGroup.getBounds());
+    map.setMaxBounds(ntuBounds);
+  }
+  updateBldgLabelsVisibility();
+}
+
+function findBuildingAt(pt){
+  if(!pt) return null;
+  for(const p of places){
+    if(p.ring && p.ring.length){
+      if(pt[0] < p.minX - 0.00015 || pt[0] > p.maxX + 0.00015 || pt[1] < p.minY - 0.00015 || pt[1] > p.maxY + 0.00015) continue;
+      if(pointInPolygon(pt, p.ring) || distToPolygon(pt, p.ring) <= 5.0) return p;
+    }
+  }
+  return null;
+}
+
+/* ====================== 5. TÌM ĐƯỜNG ====================== */
+document.getElementById('btnFind').onclick=()=>{
+  const s = document.getElementById('startPoint').value;
+  const e = document.getElementById('endPoint').value;
+  $result.className='';
+  if(s==='' || e===''){ alert('Vui lòng chọn đầy đủ điểm đi và điểm đến từ danh sách hoặc click trên bản đồ!'); return; }
+  if(s===e){ $result.textContent='Điểm đi và điểm đến trùng nhau.'; return; }
+  if(!segments.length){ $result.className='err'; $result.textContent='Chưa có dữ liệu đường đi.'; return; }
+
+  routeLayer.clearLayers();
+
+  let A = null;
+  if(s === 'user_current_location'){
+    if(!myCurrentLocation){ alert('Chưa có tọa độ vị trí của bạn.'); return; }
+    const bldg = findBuildingAt(myCurrentLocation);
+    A = bldg
+      ? { name: `Vị trí của bạn (tại ${bldg.name})`, center: myCurrentLocation, ring: bldg.ring, minX: bldg.minX, maxX: bldg.maxX, minY: bldg.minY, maxY: bldg.maxY, exactPt: myCurrentLocation }
+      : { name: 'Vị trí hiện tại của bạn', center: myCurrentLocation, ring: null, exactPt: myCurrentLocation };
+  } else {
+    A = places[+s];
+  }
+
+  let B = places[+e];
+  const r = shortestPath(A, B);
+  if(!r){ $result.className='err'; $result.textContent='Không có đường nối giữa 2 điểm.'; return; }
+
+  const ll = r.path.map(c => [c[1], c[0]]);
+  const line = L.polyline(ll, { color: '#ff0000', weight: 6, opacity: .9 }).addTo(routeLayer);
+
+  if(A.exactPt && haversine(A.exactPt, r.path[0]) > 1.0){
+    L.polyline([[A.exactPt[1], A.exactPt[0]], [r.path[0][1], r.path[0][0]]], { color: '#0d6efd', weight: 3, dashArray: '6, 6', opacity: 0.85 }).addTo(routeLayer);
+  }
+  
+  L.marker(ll[0]).bindPopup('<b>Xuất phát:</b> ' + A.name).addTo(routeLayer);
+  L.marker(ll[ll.length - 1]).bindPopup('<b>Điểm đến:</b> ' + B.name).addTo(routeLayer).openPopup();
+  map.fitBounds(line.getBounds(), { padding: [60, 60] });
+
+  $result.textContent = `Quãng đường ≈ ${r.length.toFixed(0)} m (~${Math.ceil(r.length / 80)} phút đi bộ)`;
+};
+document.getElementById('btnClear').onclick=()=>{ routeLayer.clearLayers(); $result.textContent=''; };
+
+const $btnToggle = document.getElementById('btnTogglePanel');
+const $panelBody = document.getElementById('panelBody');
+$btnToggle.onclick = () => {
+  const isHidden = $panelBody.style.display === 'none';
+  $panelBody.style.display = isHidden ? 'block' : 'none';
+  $btnToggle.textContent = isHidden ? '▲ Thu gọn' : '▼ Tìm đường';
+};
+
+/* ====================== 6. XỬ LÝ CLICK BẢN ĐỒ & ĐỊNH VỊ GPS ====================== */
+const LocateControl = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd: function() {
+    const container = L.DomUtil.create('div', 'leaflet-bar');
+    const btn = L.DomUtil.create('a', '', container);
+    btn.innerHTML = '🎯'; btn.href = '#'; btn.title = 'Định vị vị trí hiện tại của bạn';
+    btn.style.cssText = 'font-size:16px;line-height:30px;text-align:center;display:block;width:30px;height:30px;background:#fff;';
+    btn.onclick = (ev) => { ev.preventDefault(); document.getElementById('btnLocate').click(); };
+    return container;
+  }
+});
+map.addControl(new LocateControl());
+
+document.getElementById('btnLocate').onclick = () => {
+  const $btn = document.getElementById('btnLocate');
+  $btn.textContent = 'Đang định vị...'; $btn.disabled = true;
+  map.locate({ setView: false, enableHighAccuracy: true });
+};
+
+function setUserLocation(latlng, accuracy = null, isManual = false){
+  userLocationLayer.clearLayers();
+  const lat = latlng.lat, lng = latlng.lng;
+  myCurrentLocation = [lng, lat];
+
+  L.circle(latlng, { radius: accuracy ? Math.max(accuracy / 2, 5) : 6, color: '#0d6efd', fillColor: '#0d6efd', fillOpacity: 0.15, weight: 1 }).addTo(userLocationLayer);
+  L.circleMarker(latlng, { radius: 8, color: '#fff', fillColor: '#0d6efd', fillOpacity: 1, weight: 3 }).addTo(userLocationLayer);
+
+  const bldg = findBuildingAt(myCurrentLocation);
+  userLocLabel = bldg ? `[Vị trí của bạn - ${bldg.name}]` : '[Vị trí hiện tại của tôi]';
+  setPlaceAs('start', 'user_current_location');
+
+  const $btn = document.getElementById('btnLocate');
+  if ($btn && isManual) $btn.textContent = '📍 Cập nhật lại vị trí';
+}
+
+function handleMapClick(latlng) {
+  const bldg = findBuildingAt([latlng.lng, latlng.lat]);
+  const placeName = bldg ? bldg.name : `Tọa độ (${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)})`;
+  
+  let customId = null;
+  if (!bldg) {
+    customId = places.length;
+    places.push({
+      name: `Vị trí chọn: ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}`,
+      center: [latlng.lng, latlng.lat],
+      ring: null, kind: 'Tùy chỉnh'
+    });
+  } else {
+   customId = places.findIndex(p => p === bldg);
+  }
+
+  const popupContent = document.createElement('div');
+  popupContent.className = 'am-pop';
+  popupContent.innerHTML = `
+    <b>📍 ${placeName}</b>
+    <div style="font-size:12px;color:#555;margin:3px 0 6px;">Bạn muốn chọn vị trí này làm gì?</div>
+    <div class="row">
+      <button type="button" class="mini" id="popStart" style="background:#0066cc;color:#fff;">Điểm đi</button>
+      <button type="button" class="mini" id="popEnd" style="background:#198754;color:#fff;">Điểm đến</button>
+    </div>
+  `;
+
+  popupContent.querySelector('#popStart').onclick = () => {
+    setPlaceAs('start', customId);
+    map.closePopup();
+  };
+  popupContent.querySelector('#popEnd').onclick = () => {
+    setPlaceAs('end', customId);
+    map.closePopup();
+  };
+
+  L.popup().setLatLng(latlng).setContent(popupContent).openOn(map);
+}
+
+campusGroup.on('click', (e) => {
+  if (e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+  handleMapClick(e.latlng);
+});
+map.on('click', (e) => {
+  handleMapClick(e.latlng);
+});
+
+map.on('locationfound', (e) => {
+  const $btn = document.getElementById('btnLocate');
+  if ($btn) { $btn.textContent = '📍 Cập nhật lại vị trí'; $btn.disabled = false; }
+  setUserLocation(e.latlng, e.accuracy, false);
+  map.setView(e.latlng, Math.max(map.getZoom(), 18));
+});
+map.on('locationerror', (e) => {
+  const $btn = document.getElementById('btnLocate');
+  if ($btn) { $btn.textContent = '📍 Vị trí hiện tại của tôi'; $btn.disabled = false; }
+  alert('Không thể lấy vị trí hiện tại: ' + e.message);
+});
+
+init();
+</script>
+</body>
+</html>
