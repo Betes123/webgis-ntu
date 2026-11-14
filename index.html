@@ -92,26 +92,34 @@
   .am-pop { line-height:1.45; min-width:160px; }
   .am-pop .row { display:flex; gap:5px; margin-top:6px; }
 
+  .btn-row { display:block; }
+  #result:empty { display:none; }
+
   @media (max-width: 600px) {
-    .panel { top:8px; left:48px; right:8px; width:auto; padding:6px 8px; border-radius:8px; max-height:55vh; }
-    h3 { font-size:12px; }
-    .form-group { margin-bottom:4px; }
-    label { font-size:10px; margin-bottom:1px; }
-    .combo-input, #searchBox { font-size:14px; padding:5px 24px 5px 6px; }
-    .combo-list { max-height:140px; }
-    .combo-opt { padding:6px 8px; font-size:12px; }
-    button { padding:5px; font-size:11px; margin-top:3px; }
-    #btnLocate { font-size:10px !important; padding:4px !important; margin-top:3px !important; }
-    #result { font-size:11px; margin-top:4px; }
-    .map-type-toggle { margin-bottom:calc(env(safe-area-inset-bottom, 0px) + 20px) !important; margin-left:8px !important; }
-    .map-type-toggle .type-btn { padding:5px 10px !important; font-size:11px !important; }
-    #amenityBox { margin-top:4px; padding-top:4px; }
-    #searchResults { max-height:22vh; }
-    .sr-item { padding:6px 6px; font-size:11px; }
-    .sr-txt b { font-size:11px; }
-    .sr-txt small { font-size:10px; }
-    button.mini { padding:4px 7px; font-size:11px; }
-    button.chip { padding:3px 6px; font-size:10px; }
+    .panel { top:8px; left:54px; right:8px; width:auto; padding:7px 9px; border-radius:10px; max-height:46vh; }
+    h3 { font-size:13px; }
+    .toggle-btn { font-size:11px; padding:4px 8px; }
+    #panelBody { margin-top:5px !important; }
+    .form-group { margin-bottom:5px; }
+    label { display:none; }
+    .combo-input, #searchBox { font-size:16px; padding:6px 26px 6px 8px; }
+    .combo-list { position:static; max-height:30vh; margin-top:3px; }
+    .combo-opt { padding:8px 10px; }
+    button { padding:6px; font-size:12px; margin-top:4px; }
+    #btnLocate { font-size:12px !important; padding:5px !important; margin-top:4px !important; }
+    .btn-row { display:flex; gap:6px; }
+    .btn-row button { flex:1; margin-top:2px; }
+    #result { font-size:12px; margin-top:4px; }
+    .map-type-toggle { margin-bottom:calc(env(safe-area-inset-bottom, 0px) + 22px) !important; margin-left:10px !important; }
+    .map-type-toggle .type-btn { padding:6px 10px !important; font-size:12px !important; }
+    #amenityBox { margin-top:6px; padding-top:6px; }
+    #searchResults { max-height:30vh; }
+    .sr-item { padding:8px 8px; }
+    button.mini { padding:6px 10px; font-size:12px; }
+    button.chip { padding:5px 9px; font-size:11px; }
+    .am-pin { transform:scale(.78); }
+    .bldg-label { font-size:9px !important; }
+    .leaflet-control-attribution { font-size:9px; }
   }
 </style>
 </head>
@@ -122,16 +130,16 @@
     <h3>WebGIS NTU - Tìm Đường</h3>
     <button type="button" id="btnTogglePanel" class="toggle-btn" title="Thu gọn / Mở rộng">▲ Thu gọn</button>
   </div>
-  <div id="panelBody" style="margin-top: 6px;">
+  <div id="panelBody" style="margin-top: 8px;">
     <div class="form-group">
       <label>Điểm xuất phát:</label>
       <div class="combo-wrap">
-        <input type="text" id="startInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đi..." autocomplete="off">
+        <input type="text" id="startInput" class="combo-input" placeholder="Điểm đi: gõ tên hoặc chọn..." autocomplete="off">
         <button type="button" id="clearStart" class="combo-clear" title="Xóa">✕</button>
       </div>
       <input type="hidden" id="startPoint" value="">
       <div id="startList" class="combo-list"></div>
-      <button type="button" id="btnLocate" style="background:#198754; font-size:11px; padding:5px; margin-top:4px;">
+      <button type="button" id="btnLocate" style="background:#198754; font-size:12px; padding:6px; margin-top:6px;">
         📍 Vị trí hiện tại của tôi
       </button>
     </div>
@@ -139,28 +147,30 @@
     <div class="form-group">
       <label>Điểm đến:</label>
       <div class="combo-wrap">
-        <input type="text" id="endInput" class="combo-input" placeholder="Gõ tên hoặc chọn điểm đến..." autocomplete="off">
+        <input type="text" id="endInput" class="combo-input" placeholder="Điểm đến: gõ tên hoặc chọn..." autocomplete="off">
         <button type="button" id="clearEnd" class="combo-clear" title="Xóa">✕</button>
       </div>
       <input type="hidden" id="endPoint" value="">
       <div id="endList" class="combo-list"></div>
     </div>
 
-    <button id="btnFind">Tìm đường ngắn nhất</button>
-    <button id="btnClear" class="sec">Xóa kết quả</button>
-    <div id="result"></div>
+    <div class="btn-row">
+      <button id="btnFind">Tìm đường ngắn nhất</button>
+      <button id="btnClear" class="sec">Xóa kết quả</button>
+    </div>
 
-    <details id="amenityBox">
+    <details id="amenityBox" open>
       <summary>🔎 Tra cứu tiện ích</summary>
-      <input type="search" id="searchBox" placeholder="Gõ tên tiện ích..." autocomplete="off">
+      <input type="search" id="searchBox" placeholder="Bấm xem gợi ý hoặc gõ tên tiện ích..." autocomplete="off">
       <div id="searchResults"></div>
       <div class="chip-head">
-        <span>Lọc nhóm:</span>
+        <span>Lọc tiện ích theo nhóm:</span>
         <span><button type="button" class="mini sec" id="chipAll">Tất cả</button><button type="button" class="mini sec" id="chipNone">Ẩn hết</button></span>
       </div>
       <div id="chipRow"></div>
     </details>
   </div>
+  <div id="result"></div>
 </div>
 
 <div id="map"></div>
@@ -168,13 +178,25 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ====================== 1. BẢN ĐỒ ====================== */
+// Siết chặt giới hạn khung nhìn sát khuôn viên Đại học Nha Trang
+const ntuBounds = L.latLngBounds(
+  [12.2645, 109.1980], // Tây Nam (sát mép trong trường)
+  [12.2725, 109.2060]  // Đông Bắc (sát mép trong trường)
+);
+
+
 const map = L.map('map', {
-  center: [12.2685, 109.2018], zoom: 17, minZoom: 15, maxZoom: 21
+  center: [12.2685, 109.2018], 
+  zoom: 18, 
+  minZoom: 18, // Bắt buộc zoom tối thiểu mức 18 để trường phủ kín màn hình
+  maxZoom: 21,
+  maxBoundsViscosity: 1.0
 });
 
 function updateBldgLabelsVisibility() {
   const container = map.getContainer();
-  if (map.getZoom() >= 18) {
+  const minZ = window.matchMedia('(max-width: 600px)').matches ? 19 : 18;
+  if (map.getZoom() >= minZ) {
     container.classList.remove('hide-bldg-labels');
   } else {
     container.classList.add('hide-bldg-labels');
@@ -506,7 +528,7 @@ function setPlaceAs(which, id){
   }
   clrBtn.style.display = 'block';
   $result.className = '';
-  $result.textContent = (isStart ? 'Điểm xuất phát: ' : 'Điểm đến: ') + txtInput.value;
+  $result.textContent = '';
 }
 
 function setupComboBox(which){
@@ -751,6 +773,7 @@ async function init(){
   setupComboBox('start');
   setupComboBox('end');
 
+  // 1. Nạp Đường Đi
   try{
     const roads = await loadJSON('NTU_DuongDi.geojson');
     L.geoJSON(roads,{
@@ -765,15 +788,22 @@ async function init(){
     buildGraph(roads); bridgeGaps(1.5); connectNearJunctions(1.2); keepMainComponent();
   }catch(e){ console.error(e); }
 
+  // 2. Nạp Tòa Nhà
   try{
     const b = await loadJSON('NTU_ToaNha.geojson');
     const layer = L.geoJSON(b,{
       style:{color:'#d9534f',fillColor:'#f0ad4e',fillOpacity:.6,weight:2},
       onEachFeature:(f,l)=>{
         const p = f.properties || {}, name = getName(p, 'Khu vực NTU');
+        
         if (l.getBounds) {
-          l.bindTooltip(name, { permanent: true, direction: 'center', className: 'bldg-label' });
+          l.bindTooltip(name, {
+            permanent: true,
+            direction: 'center',
+            className: 'bldg-label'
+          });
         }
+
         let html = `<div style="min-width:140px;line-height:1.4"><b style="font-size:14px;color:#d9534f">🏢 ${name}</b>`;
         if(p.type) html += `<br><span style="font-size:12px;color:#555">Phân loại: <b>${p.type}</b></span>`;
         if(p.fid) html += `<br><span style="font-size:11px;color:#888">Mã (fid): #${p.fid}</span>`;
@@ -783,6 +813,7 @@ async function init(){
     addPlaces(layer,'Tòa nhà');
   }catch(e){ console.error(e); }
 
+  // 3. Nạp Tiện Ích
   try{
     const t = await loadJSON('NTU_TienIch.geojson');
     const layer = L.geoJSON(t,{
@@ -794,7 +825,9 @@ async function init(){
   }catch(e){ console.error(e); }
 
   if(campusGroup.getLayers().length && campusGroup.getBounds().isValid()) {
+    map.setMaxBounds(null);
     map.fitBounds(campusGroup.getBounds());
+    map.setMaxBounds(ntuBounds);
   }
   updateBldgLabelsVisibility();
 }
@@ -848,16 +881,17 @@ document.getElementById('btnFind').onclick=()=>{
   map.fitBounds(line.getBounds(), { padding: [60, 60] });
 
   $result.textContent = `Quãng đường ≈ ${r.length.toFixed(0)} m (~${Math.ceil(r.length / 80)} phút đi bộ)`;
+  if(isNarrow()) setPanel(false);
 };
 document.getElementById('btnClear').onclick=()=>{ routeLayer.clearLayers(); $result.textContent=''; };
 
 const $btnToggle = document.getElementById('btnTogglePanel');
 const $panelBody = document.getElementById('panelBody');
-$btnToggle.onclick = () => {
-  const isHidden = $panelBody.style.display === 'none';
-  $panelBody.style.display = isHidden ? 'block' : 'none';
-  $btnToggle.textContent = isHidden ? '▲ Thu gọn' : '▼ Mở rộng';
-};
+function setPanel(open){
+  $panelBody.style.display = open ? 'block' : 'none';
+  $btnToggle.textContent = open ? '▲ Thu gọn' : '▼ Mở bảng';
+}
+$btnToggle.onclick = () => setPanel($panelBody.style.display === 'none');
 
 /* ====================== 6. XỬ LÝ CLICK BẢN ĐỒ & ĐỊNH VỊ GPS ====================== */
 const LocateControl = L.Control.extend({
@@ -908,7 +942,7 @@ function handleMapClick(latlng) {
       ring: null, kind: 'Tùy chỉnh'
     });
   } else {
-    customId = places.findIndex(p => p === bldg);
+   customId = places.findIndex(p => p === bldg);
   }
 
   const popupContent = document.createElement('div');
