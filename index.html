@@ -651,18 +651,9 @@ async function init(){
   setupComboBox('start');
   setupComboBox('end');
 
-  // 1. Nạp Đường Đi
+  // 1. Nạp Đường Đi (Chỉ dựng đồ thị tính toán, không vẽ đường màu xanh lên bản đồ)
   try{
     const roads = await loadJSON('NTU_DuongDi.geojson');
-    L.geoJSON(roads,{
-      style:{color:'#007bff',weight:4,opacity:.8},
-      onEachFeature:(f,l)=>{
-        const p = f.properties || {}, n = getName(p, null);
-        let html = `<div style="line-height:1.4"><b style="color:#007bff">🛣️ ${n ? 'Đường: ' + n : 'Đường nội bộ NTU'}</b>`;
-        if(p.fclass) html += `<br><span style="font-size:12px;color:#555">Loại: ${p.fclass}</span>`;
-        l.bindPopup(html + `</div>`);
-      }
-    }).addTo(campusGroup);
     buildGraph(roads); bridgeGaps(1.5); connectNearJunctions(1.2); keepMainComponent();
   }catch(e){ console.error(e); }
 
