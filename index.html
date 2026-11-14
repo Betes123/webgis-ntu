@@ -12,7 +12,7 @@
   body, html { margin:0; padding:0; height:100%; width:100%; font-family: Arial, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; overflow:hidden; }
   #map { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%; height:100dvh; background:#000; }
   .panel { position:absolute; top:15px; right:15px; z-index:1000; background:#fff; padding:14px;
-           border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,.3); width:330px; max-height:92vh; overflow:auto; transition: all 0.25s ease; }
+           border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,.3); width:380px; max-height:92vh; overflow:auto; transition: all 0.25s ease; }
   .panel-header { display:flex; justify-content:space-between; align-items:center; }
   h3 { margin:0; color:#0066cc; font-size:16px; }
   .toggle-btn { width:auto; padding:3px 8px; font-size:11px; margin:0; background:#f0f2f5; color:#333; border:1px solid #ccc; border-radius:4px; cursor:pointer; }
@@ -49,7 +49,7 @@
                  background:#e9ecef; color:#555; border-radius:50%; font-size:11px; line-height:20px; text-align:center; display:none; }
   .combo-clear:hover { background:#ced4da; color:#000; }
   .combo-list { display:none; position:absolute; left:0; right:0; top:100%; margin-top:3px; background:#fff; border:1px solid #ccc;
-                border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,.22); max-height:210px; overflow-y:auto; z-index:1200; }
+                border-radius:6px; box-shadow:0 6px 16px rgba(0,0,0,.22); max-height:280px; overflow-y:auto; z-index:1200; }
   .combo-grp { padding:5px 9px; font-size:11px; font-weight:bold; color:#0066cc; background:#f4f7fb; border-bottom:1px solid #e5ebf3; position:sticky; top:0; }
   .combo-opt { padding:7px 10px; font-size:13px; cursor:pointer; border-bottom:1px solid #f3f3f3; display:flex; justify-content:space-between; align-items:center; }
   .combo-opt:last-child { border-bottom:none; }
@@ -540,7 +540,7 @@ function setupComboBox(which){
       listBox.appendChild(div);
     }
 
-    ['Tiện ích', 'Tòa nhà'].forEach(grp => {
+    ['Tòa nhà', 'Tiện ích'].forEach(grp => {
       const matched = [];
       places.forEach((p, id) => {
         if (p.kind === grp && (!q || fold(p.name).includes(q))) matched.push({p, id});
